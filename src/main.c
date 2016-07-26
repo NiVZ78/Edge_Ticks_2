@@ -1,7 +1,7 @@
 #include <pebble.h>
 
 
-#define MINOR_TICK_LENGTH 3
+#define MINOR_TICK_LENGTH 5
 #define MINOR_TICK_WIDTH 1
 
 #define MAJOR_TICK_LENGTH 15
@@ -71,7 +71,7 @@ static void tick_mark_update_proc(Layer *this_layer, GContext *ctx) {
           outer_point.x = bounds.origin.x + (bounds.size.w / 2);
           outer_point.y = bounds.origin.y;
           inner_point.x = outer_point.x;
-          inner_point.y = outer_point.y + MAJOR_TICK_LENGTH;
+          inner_point.y = outer_point.y + MAJOR_TICK_LENGTH -1;
           direction = 0;
           break;
         
@@ -97,7 +97,7 @@ static void tick_mark_update_proc(Layer *this_layer, GContext *ctx) {
           // Hour 9
           outer_point.x = bounds.origin.x;
           outer_point.y = bounds.origin.y + (bounds.size.h / 2);
-          inner_point.x = outer_point.x + MAJOR_TICK_LENGTH;
+          inner_point.x = outer_point.x + MAJOR_TICK_LENGTH -1;
           inner_point.y = outer_point.y;
           direction = 1;
           break;
@@ -135,7 +135,64 @@ static void tick_mark_update_proc(Layer *this_layer, GContext *ctx) {
     else
     {
       // RECT Minutes
-      draw_line(ctx, GColorWhite, getPointOnRect(layer_get_bounds(this_layer), TRIG_MAX_ANGLE * (i-15) / 60), getPointOnRect(grect_inset(layer_get_bounds(this_layer), GEdgeInsets(MINOR_TICK_LENGTH)), TRIG_MAX_ANGLE * (i-15) / 60), MINOR_TICK_WIDTH);
+      int minute_angle = 0;
+      int minute_angle1 = 0;
+      int minute_angle2 = 0;
+      int adjustment = (TRIG_MAX_ANGLE / 360);   // 1 degree
+      
+      // Calcuate the centre point for this tick
+      minute_angle = TRIG_MAX_ANGLE * (i-15) / 60;
+      
+      // Adjust the first angle slightly to add thickness
+      if (i<30){
+        minute_angle1 = minute_angle - adjustment;
+      }
+      else{
+        minute_angle1 = minute_angle + adjustment;
+      }
+      
+      // Adjust the second angle slightly to add thickness
+      if (i<30){
+        minute_angle2 = minute_angle + adjustment;
+      }
+      else{
+        minute_angle2 = minute_angle - adjustment;
+      }
+      
+      // Calculate the four points clockwise
+      GPoint p1 = getPointOnRect(layer_get_bounds(this_layer), minute_angle1);
+      GPoint p2 = getPointOnRect(layer_get_bounds(this_layer), minute_angle2);
+      GPoint p3 = getPointOnRect(grect_inset(layer_get_bounds(this_layer), GEdgeInsets(MINOR_TICK_LENGTH+(MINOR_TICK_LENGTH%2))), minute_angle2);
+      GPoint p4 = getPointOnRect(grect_inset(layer_get_bounds(this_layer), GEdgeInsets(MINOR_TICK_LENGTH+(MINOR_TICK_LENGTH%2))), minute_angle1);
+      
+      
+      /*
+      // Draw 4 lines joining the 4 points for testing
+      draw_line(ctx, GColorWhite, p1, p2, 1);
+      draw_line(ctx, GColorWhite, p2, p3, 1);
+      draw_line(ctx, GColorWhite, p3, p4, 1);
+      draw_line(ctx, GColorWhite, p4, p1, 1);
+      */
+      
+      // Initialise a GPath and add our 4 points to it
+      GPath *tick_path;
+      GPathInfo TICK_PATH_INFO = {
+        .num_points = 4,
+        .points = (GPoint[]) { p1, p2, p3, p4}
+      };
+        
+      // Create the path
+      tick_path = gpath_create(&TICK_PATH_INFO);
+      
+      // Set fill and stroke colour
+      graphics_context_set_fill_color(ctx, GColorWhite);
+      graphics_context_set_stroke_color(ctx, GColorWhite);
+      
+      // Draw
+      gpath_draw_filled(ctx, tick_path);
+      //gpath_draw_outline(ctx, tick_path);
+      
+      
     }
     #else
     else if (i%5 == 0 ){
@@ -149,6 +206,11 @@ static void tick_mark_update_proc(Layer *this_layer, GContext *ctx) {
     }
     #endif
         
+  }
+  
+  // For debug, draw Red lines showing the 60 positions of the minute hand (to check ticks are in correct position)
+  for (int h=0; h<60; h++){
+    draw_line(ctx, GColorRed, GPoint(bounds.size.w/2, bounds.size.h/2), getPointOnRect(grect_inset(layer_get_bounds(this_layer), GEdgeInsets(MINOR_TICK_LENGTH+(MINOR_TICK_LENGTH%2))), TRIG_MAX_ANGLE * (h-15) / 60), 1);
   }
   
 }
